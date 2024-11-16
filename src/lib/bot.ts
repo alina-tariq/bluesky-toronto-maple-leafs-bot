@@ -354,9 +354,9 @@ export default class Bot
         : this.defaultOptions;
       const bot = new Bot(service); // Instantiate a constant bot value as a new Bot under the supplied Bluesky service.
       await bot.login(bskyAccount); // Log the bot into the specified Bluesky account determined by the bskyAccount value.
-      const mastodonAwait = await getPostText(); // Get the desired number of recent Mastodon posts from the specified user in getPostText.
+      const embedTweets = await getPostText(); // Get the desired number of recent Mastodon posts from the specified user in getPostText.
 
-      var urlsStringsAltsCardsArr = mastodonAwait.split("~~~");
+      var urlsStringsAltsCardsArr = embedTweets.split("~~~");
       var mastUrlArr = urlsStringsAltsCardsArr[0].split("@#%");
       var mastodonArr = urlsStringsAltsCardsArr[1].split("@#%");
       var mastAltArr = urlsStringsAltsCardsArr[2].split("@#%");
