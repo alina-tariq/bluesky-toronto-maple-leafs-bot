@@ -22,7 +22,9 @@ export default async function getPostText()
 	var altTextArr = [];
 	var cardArr = [];
 
-	for (let i = 0; i < objJSON.length; i++) {
+	// TODO: replace i < 1 with objJSON.length when post check stops failing
+	// for now manually pushing just the latest post 
+	for (let i = 0; i < 1; i++) {
 		var postUrlArr = [];
 		var postAltTextArr = [];
 		
@@ -31,23 +33,29 @@ export default async function getPostText()
 		for (let j = 0; j < 4; j++) {
 			if (tweetMedia[j] != undefined) {
 				const type = tweetMedia[j]["type"];
-
+				
 				// retrieve media url
 				if (type == "video") {
-					postUrlArr.push(tweetMedia[j]["video_info"]["variants"][3]["url"]);
+					var videoUrl = tweetMedia[j]["video_info"]["variants"][3]["url"];
+					const sliceIndex = videoUrl.indexOf('mp4');
+					videoUrl = videoUrl.slice(0, sliceIndex+3);
+					postUrlArr.push(videoUrl);
 				} else if (type == 'photo' || type == 'gifv') {
+					// TODO: haven't seen a post with a gif yet so this is a guess for gifv
 					postUrlArr.push(tweetMedia[j]["media_url_https"]);
 				} else {
 					postUrlArr.push("None");
 				}
 
 				// retrieves media alt text
-				// TODO: potentially fix
-				if (type == "video") {
-					tweetMedia[j]["additional_media_info"]["description"] == undefined || tweetMedia[j]["additional_media_info"]["description"] == ''
-						? postAltTextArr.push("None")
-						: postAltTextArr.push(tweetMedia[j]["additional_media_info"]["description"]);
-				} else {
+				if (type == 'video') {
+					const width = tweetMedia[j]["original_info"]["width"];
+					const height = tweetMedia[j]["original_info"]["height"];
+					const duration = tweetMedia[j]["video_info"]["duration_millis"] / 1000;
+					const previewUrl = tweetMedia[j]["media_url_https"];
+
+					postAltTextArr.push(`${width}@#*${height}@#*${duration}@#*${previewUrl}`);
+				} else { // no description param for non-videos
 					postAltTextArr.push("None");
 				}
 			} else {
@@ -60,11 +68,23 @@ export default async function getPostText()
 		var postAltText = postAltTextArr.join("!^&");
 		urlArr.push(postUrl);
 		altTextArr.push(postAltText);
-
-		const contentJSON = objJSON[i]["content"]["tweet"]["full_text"];
+		
+		// retrieves tweet text
+		var contentJSON = objJSON[i]["content"]["tweet"]["full_text"];
+		// for retweets retrieves text only b/c there are no url params
+		if (contentJSON.slice(0,2) == 'RT') {
+			contentJSON = 'RT @' + objJSON[i]["content"]["tweet"]["retweeted_status"]["user"]["screen_name"] + ": " + objJSON[i]["content"]["tweet"]["retweeted_status"]["full_text"];
+		}
 		var contentString = JSON.stringify(contentJSON);
-		const tweetLink = new RegExp(" https://t.co/[A-Za-z0-9]+", "g");
-		contentString = contentString.replace(tweetLink, "'");
+
+		const tweetLink = /(?<![: ])([\s]*[\|]*[\s]*https:\/\/t\.co\/[a-zA-Z0-9]+)/gi;
+		const newLine = new RegExp("\\\\n", "g");
+		const ampersand = new RegExp("&amp;", "g");
+		
+		contentString = contentString.slice(1, -2); // removes quotes around the string
+		contentString = contentString.replace(tweetLink, ""); // removes tweet link 
+		contentString = contentString.replace(newLine, "\n");
+		contentString = contentString.replace(ampersand, '&');
 
 		// TODO: fix if there's a card paramter
 		cardArr.push("None");
@@ -77,6 +97,6 @@ export default async function getPostText()
 	var cards = cardArr.join("@#%");
 	var urlsStringsAltsCardsArr = [urls, strings, alts, cards];
 	var urlsStringsAltsCards = urlsStringsAltsCardsArr.join("~~~");
-	
+
 	return urlsStringsAltsCards; // Return this singular concatenated string. 
 }

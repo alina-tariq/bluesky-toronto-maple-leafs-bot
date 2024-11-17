@@ -146,13 +146,15 @@ export default class Bot
     const limitsResponse = await axios.get(limitsUrl, {headers: {'Authorization': `Bearer ${token}`}});
     const limits = limitsResponse.data;
 
+    // posts video if it's less than 60 seconds long
     if (urls[0].slice(-3) == "mp4" && parseFloat(alts[0].split("@#*")[2]) < 60 && limits.canUpload == true)
     {
       await this.postVideo(false, urls[0], alts[0], text);
       return 37;
     }
-    else
-    {
+    else // non-video posts
+    { 
+      // for videos longer than 60 seconds
       if (urls[0].slice(-3) == "mp4")
       {
         urls[0] = alts[0].split("@#*")[3];
@@ -165,6 +167,8 @@ export default class Bot
           alts[0] = "The video is too long to be posted on Bluesky. This is the thumbnail of the video instead.";
         }
       }
+
+      // TODO: currently will never be true b/c card is always None
       if (card != "None" && urls[0] == "None")
       {
         var cardResponse = await axios.get(cards[3], { responseType: 'arraybuffer'});
@@ -243,7 +247,9 @@ export default class Bot
         var bskyRecord = bskyPost["post"]["record"]; // Filter post i down so we are only considering the record.
         var bskyEntries = Object.entries(bskyRecord); // Accessing the values from here is weird, so I put them all in an array and access the one corresponding to text (0,1).
         var bskyText = bskyEntries[bskyEntries.length - 1][1];
-        if (text === bskyText || text === "") // Check if the text we are trying to post has already been posted in the last postNum posts, or is empty. Might change empty conditional if I get images working.  
+        
+        // TODO: this will fail if two tweets consisting of just images are posted back to back so fix
+        if (text === bskyText) // Check if the text we are trying to post has already been posted in the last postNum posts, or is empty. Might change empty conditional if I get images working.  
         {
           console.log("failed on case " + i);
           return "37"; // Output an arbitrary value that can be treated as a fail code. Could be anything, I picked 37 because I like the number 37. 
@@ -369,7 +375,7 @@ export default class Bot
         {
           if (mastodonArr[i].length <= 300) // Simple case, where a post is 300 characters or less, within the length bounds of a Bluesky post.
           {
-            var postVal = await bot.post(false, mastUrlArr[i], mastAltArr[i], mastCardArr[i], mastodonArr[i]); // Run bot.post on this text value, posting to Bluesky if the text is new. Post this as a root value. // Run bot.post on this text value, posting to Bluesky if the text is new. Post this as a root value.
+            var postVal = await bot.post(false, mastUrlArr[i], mastAltArr[i], mastCardArr[i], mastodonArr[i]); // Run bot.post on this text value, posting to Bluesky if the text is new. Post this as a root value.
             if (Number(postVal) != 37)
             {
               postCount++;
@@ -418,7 +424,8 @@ export default class Bot
         }
         if (postCount == mastodonArr.length)
         {
-          await bot.post(false, "None!^&None!^&None!^&None", "None!^&None!^&None!^&None", "None", "ERROR: Repost Detection Glitch.");
+          // TODO: seems to trigger if there's only one post being uploaded so disabling for now
+          // await bot.post(false, "None!^&None!^&None!^&None", "None!^&None!^&None!^&None", "None", "ERROR: Repost Detection Glitch.");
         }
       }
       return; // Return void, we're done. 
