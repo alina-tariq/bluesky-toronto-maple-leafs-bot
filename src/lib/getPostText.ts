@@ -87,16 +87,19 @@ export default async function getPostText()
 		}
 		var contentString = JSON.stringify(contentJSON);
 
-		const tweetLink = /(?<![: ])([\s]*[\|]*[\s]*https:\/\/t\.co\/[a-zA-Z0-9]+)/gi;
+		// TODO: it seems as if not all tweets have a link at the end of the
+		// tweet so this may end up removing actual links as well
+		const tweetLink = /https:\/\/t\.co\/[a-zA-Z0-9]+(?!.*https:\/\/t\.co\/[a-zA-Z0-9]+)/gi; // matches only the last link in a tweet
 		const newLine = new RegExp("\\\\n", "g");
-		const ampersand = new RegExp("&amp;", "g");
-		
-		contentString = contentString.slice(1, -2); // removes quotes around the string
-		contentString = contentString.replace(tweetLink, ""); // removes tweet link 
+		const ampersand = new RegExp("&amp;", "g"); 
+
+		contentString = contentString.slice(1, -1); // removes quotes around the string
+		contentString = contentString.replace(tweetLink, ""); // removes tweet link
 		contentString = contentString.replace(newLine, "\n");
 		contentString = contentString.replace(ampersand, '&');
 
-		// TODO: fix if there's a card paramter
+		// NOTE: not sure what the card parameter requires but since
+		// posting works fine with the other params will leave as is
 		cardArr.push("None");
 		stringArr.push(contentString);
 	}
