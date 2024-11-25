@@ -36,9 +36,10 @@ export default async function getPostText()
 					const sliceIndex = videoUrl.indexOf('mp4');
 					videoUrl = videoUrl.slice(0, sliceIndex+3);
 					postUrlArr.push(videoUrl);
-				} else if (type == 'photo' || type == 'gifv') {
-					// TODO: haven't seen a post with a gif yet so this is a guess for gifv
+				} else if (type == 'photo') {
 					postUrlArr.push(tweetMedia[j]["media_url_https"]);
+				} else if (type == 'animated_gif') {
+					postUrlArr.push(tweetMedia[j]["video_info"]["variants"][0]["url"]);
 				} else {
 					postUrlArr.push("None");
 				}
@@ -54,7 +55,17 @@ export default async function getPostText()
 				} else if (type == 'photo') {
 					// for comparison for image posts with no caption
 					postAltTextArr.push(tweetMedia[j]["media_url_https"]);
-				} else { // no description param for non-videos
+				} else if (type == 'animated_gif') {
+					const width = tweetMedia[j]["original_info"]["width"];
+					const height = tweetMedia[j]["original_info"]["height"];
+					// NOTE: this is hard coded because this info does not exist for gifs
+					// but is required; an incorrect duration has no affect on the
+					// gif video being uploaded correctly so ignore for now
+					const duration = 2;
+					const previewUrl = tweetMedia[j]["media_url_https"];
+
+					postAltTextArr.push(`${width}@#*${height}@#*${duration}@#*${previewUrl}`);
+				} else {
 					postAltTextArr.push("None");
 				}
 			} else {
@@ -76,16 +87,19 @@ export default async function getPostText()
 		}
 		var contentString = JSON.stringify(contentJSON);
 
-		const tweetLink = /(?<![: ])([\s]*[\|]*[\s]*https:\/\/t\.co\/[a-zA-Z0-9]+)/gi;
+		// TODO: it seems as if not all tweets have a link at the end of the
+		// tweet so this may end up removing actual links as well
+		const tweetLink = /https:\/\/t\.co\/[a-zA-Z0-9]+(?!.*https:\/\/t\.co\/[a-zA-Z0-9]+)/gi; // matches only the last link in a tweet
 		const newLine = new RegExp("\\\\n", "g");
-		const ampersand = new RegExp("&amp;", "g");
-		
-		contentString = contentString.slice(1, -2); // removes quotes around the string
-		contentString = contentString.replace(tweetLink, ""); // removes tweet link 
+		const ampersand = new RegExp("&amp;", "g"); 
+
+		contentString = contentString.slice(1, -1); // removes quotes around the string
+		contentString = contentString.replace(tweetLink, ""); // removes tweet link
 		contentString = contentString.replace(newLine, "\n");
 		contentString = contentString.replace(ampersand, '&');
 
-		// TODO: fix if there's a card paramter
+		// NOTE: not sure what the card parameter requires but since
+		// posting works fine with the other params will leave as is
 		cardArr.push("None");
 		stringArr.push(contentString);
 	}
