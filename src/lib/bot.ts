@@ -95,7 +95,7 @@ export default class Bot
         // Checks if the video we're posting has already been posted
         // A previous image post with no caption and a previous video with no
         // caption should also cause this check to fail
-        if (text === bskyText && postType === 'app.bsky.embed.video') // postType confirms the matching post is also a video
+        if ((text as string).trim() === (bskyText as string).trim() && postType === 'app.bsky.embed.video') // postType confirms the matching post is also a video
         {
           // TODO: not a fail safe check but the best that works for now
           var postHeight = (bskyRecord as any)["embed"]["aspectRatio"]["height"];
@@ -270,7 +270,7 @@ export default class Bot
 
         // Checks if the image or text post has already been posted
         // A previous image post with no caption should cause this to fail
-        if (text === bskyText) // Check if the text we are trying to post has already been posted in the last postNum posts, or is empty. Might change empty conditional if I get images working.  
+        if ((text as string).trim() === (bskyText as string).trim()) // Check if the text we are trying to post has already been posted in the last postNum posts, or is empty. Might change empty conditional if I get images working.  
         { 
           if (postType === 'app.bsky.embed.images') {
             var postAlt = (bskyRecord as any)["embed"]["images"][0]["alt"];
