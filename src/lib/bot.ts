@@ -5,9 +5,8 @@ import type {
   AppBskyFeedPost,
 } from "@atproto/api";
 import atproto from "@atproto/api";
-const { BskyAgent, RichText } = atproto;
-import { AppBskyEmbedVideo, AppBskyVideoDefs, AtpAgent } from "@atproto/api";
-import { promises as fs } from "fs";
+const { RichText } = atproto;
+import { AtpAgent } from "@atproto/api";
 import axios from "axios";
 
 type BotOptions = 
@@ -89,8 +88,26 @@ export default class Bot
         var bskyRecord = bskyPost["post"]["record"]; // Filter post i down so we are only considering the record.
         var bskyEntries = Object.entries(bskyRecord); // Accessing the values from here is weird, so I put them all in an array and access the one corresponding to text (0,1).
         var bskyText = bskyEntries[bskyEntries.length - 1][1];
-        if (text === bskyText || text === "") // Check if the text we are trying to post has already been posted in the last postNum posts, or is empty. Might change empty conditional if I get images working.  
+        var postType = bskyRecord.hasOwnProperty("embed")
+                        ? (bskyRecord as any)["embed"]["$type"]
+                        : (bskyRecord as any)["$type"];
+        
+        // Checks if the video we're posting has already been posted
+        // A previous image post with no caption and a previous video with no
+        // caption should also cause this check to fail
+        if (text === bskyText && postType === 'app.bsky.embed.video') // postType confirms the matching post is also a video
         {
+          // TODO: not a fail safe check but the best that works for now
+          var postHeight = (bskyRecord as any)["embed"]["aspectRatio"]["height"];
+          var postWidth = (bskyRecord as any)["embed"]["aspectRatio"]["width"];
+          var videoHeight = alt.split('@#*')[1];
+          var videoWidth = alt.split('@#*')[0];
+          
+          if (postHeight != videoHeight && postWidth != videoWidth) {
+            console.log('video texts matched but height and width did not');
+            break;
+          }
+
           console.log("failed on case " + i + " in video post");
           return;
         }
@@ -247,10 +264,26 @@ export default class Bot
         var bskyRecord = bskyPost["post"]["record"]; // Filter post i down so we are only considering the record.
         var bskyEntries = Object.entries(bskyRecord); // Accessing the values from here is weird, so I put them all in an array and access the one corresponding to text (0,1).
         var bskyText = bskyEntries[bskyEntries.length - 1][1];
-        
-        // TODO: this will fail if two tweets consisting of just images are posted back to back so fix
+        var postType = bskyRecord.hasOwnProperty("embed")
+                        ? (bskyRecord as any)["embed"]["$type"]
+                        : (bskyRecord as any)["$type"];
+
+        // Checks if the image or text post has already been posted
+        // A previous image post with no caption should cause this to fail
         if (text === bskyText) // Check if the text we are trying to post has already been posted in the last postNum posts, or is empty. Might change empty conditional if I get images working.  
-        {
+        { 
+          if (postType === 'app.bsky.embed.images') {
+            var postAlt = (bskyRecord as any)["embed"]["images"][0]["alt"];
+            var imgAlt = alt.split('!^&')[0].replace('None', '');
+            
+            // TODO: this is not fail safe if there is a case of two videos with no captions
+            // that are both too long for bluesky (i.e same alt text)
+            if (postAlt != imgAlt) {
+              console.log('image post text matched but alts did not');
+              break;
+            }
+          }
+
           console.log("failed on case " + i);
           return "37"; // Output an arbitrary value that can be treated as a fail code. Could be anything, I picked 37 because I like the number 37. 
         }
