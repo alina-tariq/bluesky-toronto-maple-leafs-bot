@@ -1,5 +1,3 @@
-// import * as Mastodon from 'tsl-mastodon-api';
-// const mastodon = new Mastodon.API({access_token: 'PRZhmwmS5fpkXo442UE8SGHv8TL7XOiqjhpOh49heb0', api_url: 'https://mastodon.social/api/v1/'}); // access the Mastodon API using the access token.
 import axios from 'axios';
 
 export default async function getPostText() 
@@ -22,9 +20,7 @@ export default async function getPostText()
 	var altTextArr = [];
 	var cardArr = [];
 
-	// TODO: replace i < 1 with objJSON.length when post check stops failing
-	// for now manually pushing just the latest post 
-	for (let i = 0; i < 1; i++) {
+	for (let i = 0; i < objJSON.length; i++) {
 		var postUrlArr = [];
 		var postAltTextArr = [];
 		
@@ -55,6 +51,9 @@ export default async function getPostText()
 					const previewUrl = tweetMedia[j]["media_url_https"];
 
 					postAltTextArr.push(`${width}@#*${height}@#*${duration}@#*${previewUrl}`);
+				} else if (type == 'photo') {
+					// for comparison for image posts with no caption
+					postAltTextArr.push(tweetMedia[j]["media_url_https"]);
 				} else { // no description param for non-videos
 					postAltTextArr.push("None");
 				}
