@@ -105,6 +105,10 @@ export default class Bot
           
           if (postHeight != videoHeight && postWidth != videoWidth) {
             console.log('video texts matched but height and width did not');
+            console.log('post text: ', text);
+            console.log('bsky text: ', bskyText);
+            console.log('post height and width: ', videoHeight, ' ', videoWidth);
+            console.log('bsky height and width: ', postHeight, ' ', postWidth);
             continue;
           }
 
@@ -280,6 +284,8 @@ export default class Bot
             // that are both too long for bluesky (i.e same alt text)
             if (postAlt != imgAlt) {
               console.log('image post text matched but alts did not');
+              console.log('post text: ', text);
+              console.log('bsky text: ', bskyText);
               console.log('post alt: ', imgAlt);
               console.log('bsky alt: ', postAlt);
               continue;
