@@ -274,12 +274,14 @@ export default class Bot
         { 
           if (postType === 'app.bsky.embed.images') {
             var postAlt = (bskyRecord as any)["embed"]["images"][0]["alt"];
-            var imgAlt = alt.split('!^&')[0].replace('None', '');
+            var imgAlt = alts[0].replace('None', '');
             
             // TODO: this is not fail safe if there is a case of two videos with no captions
             // that are both too long for bluesky (i.e same alt text)
             if (postAlt != imgAlt) {
               console.log('image post text matched but alts did not');
+              console.log('post alt: ', imgAlt);
+              console.log('bsky alt: ', postAlt);
               continue;
             }
           }
