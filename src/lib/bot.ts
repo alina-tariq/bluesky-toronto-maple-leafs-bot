@@ -207,7 +207,7 @@ export default class Bot
 
       for (var i = 0; i < 4; i++)
       {
-        if (urls[i] != "None")
+        if (urls[i] != "None" && urls[i].slice(-3) != "mp4")
         {
           var response = await axios.get(urls[i], { responseType: 'arraybuffer'});
           var buffer = Buffer.from(response.data, "utf-8");
