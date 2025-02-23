@@ -4,7 +4,7 @@ on:
   #   branches:
   #     - develop
   schedule:
-    - cron: "*/10 * * * *"
+    - cron: "*/60 * * * *"
 jobs:
   build:
     runs-on: ubuntu-latest
