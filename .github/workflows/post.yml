@@ -1,8 +1,8 @@
 name: "Post to Bluesky"
 on:
-  # push:
-  #   branches:
-  #     - develop
+  push:
+    branches:
+      - main
   schedule:
     - cron: "*/60 * * * *"
 jobs:
