@@ -1,5 +1,22 @@
 import axios from 'axios';
 
+function timeDifference(time: any) {
+    
+    var msPerMinute = 60 * 1000;
+    var msPerHour = msPerMinute * 60;
+    
+	var currentTime = new Date().getTime();
+    var difference = time - currentTime;
+    
+    if (difference < msPerMinute) {
+         return 'Rate limit resets in ' + Math.round(difference/1000) + ' seconds at ' + time.toLocaleTimeString();   
+    }
+    
+    else if (difference < msPerHour) {
+         return 'Rate limit resets in ' + Math.round(difference/msPerMinute) + ' minutes at ' + time.toLocaleTimeString();   
+    }
+}
+
 export default async function getPostText() 
 {	
 	try { 
@@ -115,6 +132,8 @@ export default async function getPostText()
 
 		return urlsStringsAltsCards; // Return this singular concatenated string. 
 	} catch (error: any) {
+		var resetTime = parseInt(error.response.headers['x-rate-limit-reset']);
+		console.log(timeDifference(new Date(resetTime * 1000)));
 		throw error.response.headers;
 	}
 }
