@@ -1,139 +1,112 @@
-import axios from 'axios';
+import * as Mastodon from 'tsl-mastodon-api';
+const mastodon = new Mastodon.API({access_token: 'PRZhmwmS5fpkXo442UE8SGHv8TL7XOiqjhpOh49heb0', api_url: 'https://mastodon.social/api/v1/'}); // access the Mastodon API using the access token.
 
-function timeDifference(time: any) {
-    
-    var msPerMinute = 60 * 1000;
-    var msPerHour = msPerMinute * 60;
-    
-	var currentTime = new Date().getTime();
-    var difference = time - currentTime;
-    
-    if (difference < msPerMinute) {
-         return 'Rate limit resets in ' + Math.round(difference/1000) + ' seconds at ' + time.toLocaleTimeString();   
-    }
-    
-    else if (difference < msPerHour) {
-         return 'Rate limit resets in ' + Math.round(difference/msPerMinute) + ' minutes at ' + time.toLocaleTimeString();   
-    }
-}
+/*
+	getPostText():
 
+	This function performs a Mastodon API GET request to get the n most recent tweets created by Walt Ruff. Using this, the function formats these strings down into the desired plaintext of a Bluesky post, stripping out all of the unnecessary HTML tag notation and handling formatting such that the text is compatible with Bluesky.
+
+	args: None
+
+	returns: A string representing the desired text of the Bluesky posts we want to create. Text for different posts are delimited by \/ characters. 
+*/
 export default async function getPostText() 
-{	
-	try { 
-	
-		const response = await axios.get('https://syndication.twitter.com/srv/timeline-profile/screen-name/mapleleafs');
+{
+	const limitVal = 20; // The number of posts to get from Mastodon.
+	var pReg = new RegExp("</p><p>", "g"); // A regex to deal with <p></p>. This should create a new section in the text, which we do via 2 line breaks.
+	var brReg = new RegExp("<br>", "g"); // A regex to deal with <br>. This should go to the next line, which we do via a line break. 
+	var quoteReg = new RegExp(`\\\\"`, "g"); // A regex to deal with \". This should be replaced with a " value with no \.
+	var andReg = new RegExp("&amp;", "g"); // A regex to deal with &amp;. This should be replaced with &.
+	var logoReg = new RegExp("&nbsp;", "g"); // A regex to deal with &nbsp;. Should be deleted.
+	var twitterReg = new RegExp("@twitter.com", "g"); // A regex to deal with @twitter.com. Should be deleted.
+	var sportsBotsReg = new RegExp("@sportsbots.xyz", "g");
+	var waltRuffReg = new RegExp("@WaltRuff@sportsbots.xyz", "g"); // A regex to deal with Walt Ruff's @. Should be replaced with the bot's @.
+	var sportsBotsReg = new RegExp("@sportsbots.xyz", "g");
+	var tagReg = new RegExp("<(:?[^>]+)>", "g"); // A general regex for HTML. Used to get the plaintext value of the mastodon post without tag notation.
+	var invalidLinkReg = new RegExp("\\S*(\\.com|\\.ca|\\.org|\\.net)\\S*(…|\\.\\.\\.)", "g");
 
-		const html = response["data"];
-
-		const start_str = '<script id="__NEXT_DATA__" type="application/json">'
-		const end_str = '</script></body></html>'
-
-		const start_index = html.indexOf(start_str) + start_str.length;
-		const end_index = html.indexOf(end_str, start_index);
-
-		const content = html.slice(start_index, end_index);
-		const objJSON = JSON.parse(content)["props"]["pageProps"]["timeline"]["entries"];
-
-		var stringArr = [];
-		var urlArr = [];
-		var altTextArr = [];
-		var cardArr = [];
-
-		for (let i = 0; i < objJSON.length; i++) {
-			var postUrlArr = [];
-			var postAltTextArr = [];
-			
-			const tweetMedia = objJSON[i]["content"]["tweet"]["entities"]["media"];
-
-			for (let j = 0; j < 4; j++) {
-				if (tweetMedia[j] != undefined) {
-					const type = tweetMedia[j]["type"];
-					
-					// retrieve media url
-					if (type == "video") {
-						var videoUrl = tweetMedia[j]["video_info"]["variants"][3]["url"];
-						const sliceIndex = videoUrl.indexOf('mp4');
-						videoUrl = videoUrl.slice(0, sliceIndex+3);
-						postUrlArr.push(videoUrl);
-					} else if (type == 'photo') {
-						postUrlArr.push(tweetMedia[j]["media_url_https"]);
-					} else if (type == 'animated_gif') {
-						postUrlArr.push(tweetMedia[j]["video_info"]["variants"][0]["url"]);
-					} else {
-						postUrlArr.push("None");
-					}
-
-					// retrieves media alt text
-					if (type == 'video') {
-						const width = tweetMedia[j]["original_info"]["width"];
-						const height = tweetMedia[j]["original_info"]["height"];
-						const duration = tweetMedia[j]["video_info"]["duration_millis"] / 1000;
-						const previewUrl = tweetMedia[j]["media_url_https"];
-
-						postAltTextArr.push(`${width}@#*${height}@#*${duration}@#*${previewUrl}`);
-					} else if (type == 'photo') {
-						// for comparison for image posts with no caption
-						postAltTextArr.push(tweetMedia[j]["media_url_https"]);
-					} else if (type == 'animated_gif') {
-						const width = tweetMedia[j]["original_info"]["width"];
-						const height = tweetMedia[j]["original_info"]["height"];
-						// NOTE: this is hard coded because this info does not exist for gifs
-						// but is required; an incorrect duration has no affect on the
-						// gif video being uploaded correctly so ignore for now
-						const duration = 2;
-						const previewUrl = tweetMedia[j]["media_url_https"];
-
-						postAltTextArr.push(`${width}@#*${height}@#*${duration}@#*${previewUrl}`);
-					} else {
-						postAltTextArr.push("None");
-					}
-				} else {
+	var awaitTweet = await mastodon.getStatuses("109705347026604495", {'limit':limitVal}); //Use the Mastodon API to get a specified number of recent posts from the Mastodon API.
+	var string = JSON.stringify(awaitTweet); // Convert the post into a JSON string.
+	var objJSON = JSON.parse(string)["json"]; // Convert the JSON string back to a JSON object. Kinda silly, but it doesn't work otherwise. 
+	var stringArr = []; // Initialize an empty array that we will store the regexed plaintexts in.
+	var urlArr = [];
+	var altTextArr = [];
+	var cardArr = [];
+	for (let i = 0; i < limitVal; i++) // Iterate over all the posts we collected using the Mastodon API. 
+	{
+		var postUrlArr = [];
+		var postAltTextArr = [];
+		for (let j = 0; j < 4; j++)
+		{	
+			if (objJSON[i]["media_attachments"][j] != undefined)
+			{
+				if (objJSON[i]["media_attachments"][j]["type"] == "image" || objJSON[i]["media_attachments"][j]["type"] == "gifv" || objJSON[i]["media_attachments"][j]["type"] == "video")
+				{
+					postUrlArr.push(objJSON[i]["media_attachments"][j]["url"]);
+				}
+				else
+				{
 					postUrlArr.push("None");
+				}
+
+				if (objJSON[i]["media_attachments"][j]["type"] == "video" || objJSON[i]["media_attachments"][j]["type"] == "gifv")
+				{
+					postAltTextArr.push(`${objJSON[i]["media_attachments"][j]["meta"]["original"]["width"]}@#*${objJSON[i]["media_attachments"][j]["meta"]["original"]["height"]}@#*${objJSON[i]["media_attachments"][j]["meta"]["original"]["duration"]}@#*${objJSON[i]["media_attachments"][j]["preview_url"]}`);
+				}
+				else if (objJSON[i]["media_attachments"][j]["description"] == null)
+				{
 					postAltTextArr.push("None");
 				}
+				else
+				{
+					postAltTextArr.push(objJSON[i]["media_attachments"][j]["description"]);
+				}
 			}
-
-			var postUrl = postUrlArr.join("!^&");
-			var postAltText = postAltTextArr.join("!^&");
-			urlArr.push(postUrl);
-			altTextArr.push(postAltText);
-			
-			// retrieves tweet text
-			var contentJSON = objJSON[i]["content"]["tweet"]["full_text"];
-			// for retweets retrieves text only b/c there are no url params
-			if (contentJSON.slice(0,2) == 'RT') {
-				contentJSON = 'RT @' + objJSON[i]["content"]["tweet"]["retweeted_status"]["user"]["screen_name"] + ": " + objJSON[i]["content"]["tweet"]["retweeted_status"]["full_text"];
+			else
+			{
+				postUrlArr.push("None");
+				postAltTextArr.push("None");
 			}
-			var contentString = JSON.stringify(contentJSON);
+		}
+		var postUrl = postUrlArr.join("!^&");
+		var postAltText = postAltTextArr.join("!^&");
+		urlArr.push(postUrl);
+		altTextArr.push(postAltText);
+		var contentJSON = objJSON[i]["content"]; // Filter through all the values of the JSON object, to get just the content of post i. 
+		var contentString = JSON.stringify(contentJSON); // Convert the content of the post into a JSON string.
+		contentString = contentString.slice(1,-1); // Remove the quotation marks.
+		contentString = contentString.replace(twitterReg, "").replace(waltRuffReg, "notwaltruff.bsky.social").replace(sportsBotsReg, "").replace(logoReg, "").replace(quoteReg, `"`).replace(andReg, "&").replace(pReg, "\n\n").replace(brReg, "\n").replace(tagReg, ""); //Use the ", &, <p>, and <br> regexes to apply appropriate formatting. Then use the general regex to remove the HTML formatting from the mastodon post. 
 
-			// TODO: it seems as if not all tweets have a link at the end of the
-			// tweet so this may end up removing actual links as well
-			const tweetLink = /https:\/\/t\.co\/[a-zA-Z0-9]+(?!.*https:\/\/t\.co\/[a-zA-Z0-9]+)/gi; // matches only the last link in a tweet
-			const newLine = new RegExp("\\\\n", "g");
-			const ampersand = new RegExp("&amp;", "g"); 
-
-			contentString = contentString.slice(1, -1); // removes quotes around the string
-			contentString = contentString.replace(tweetLink, ""); // removes tweet link
-			contentString = contentString.replace(newLine, "\n");
-			contentString = contentString.replace(ampersand, '&');
-
-			// NOTE: not sure what the card parameter requires but since
-			// posting works fine with the other params will leave as is
-			cardArr.push("None");
-			stringArr.push(contentString);
+		if (contentString.includes("GreatClips") || contentString.includes("HarrisTeeter") || contentString.includes("RT ") || contentString.includes("Retweet ") || contentString.includes("retweet ") || contentString.includes("RETWEET "))
+		{
+			contentString = contentString + "\n\n (Offer not valid on Bluesky.)";
 		}
 
-		var urls = urlArr.join("@#%");
-		var strings = stringArr.join("@#%"); // Turn the string array into a single string by joining them with a \/ delimiter. This will be undone when used by bot functions. 
-		var alts = altTextArr.join("@#%"); 
-		var cards = cardArr.join("@#%");
-		var urlsStringsAltsCardsArr = [urls, strings, alts, cards];
-		var urlsStringsAltsCards = urlsStringsAltsCardsArr.join("~~~");
-
-		return urlsStringsAltsCards; // Return this singular concatenated string. 
-	} catch (error: any) {
-		var resetTime = parseInt(error.response.headers['x-rate-limit-reset']);
-		console.log(timeDifference(new Date(resetTime * 1000)));
-		throw error.response.headers;
+		if (objJSON[i]["card"] != null)
+		{
+			contentString = contentString.replace(invalidLinkReg, objJSON[i]["card"]["url"]);
+			var postCardArr = [];
+			postCardArr.push(objJSON[i]["card"]["url"]);
+			postCardArr.push(objJSON[i]["card"]["title"]);
+			postCardArr.push(objJSON[i]["card"]["description"]);
+			postCardArr.push(objJSON[i]["card"]["image"]);
+			var postCard = postCardArr.join("!^&");
+			cardArr.push(postCard);
+		}
+		else
+		{
+			cardArr.push("None");
+		}
+		stringArr.push(contentString); // Add the regexed content to the array of plaintexts.
 	}
+	//urlArr[27] = "None!^&None!^&None!^&None";
+	//altTextArr[27] = "None!^&None!^&None!^&None";
+
+	var urls = urlArr.join("@#%");
+	var strings = stringArr.join("@#%"); // Turn the string array into a single string by joining them with a \/ delimiter. This will be undone when used by bot functions. 
+	var alts = altTextArr.join("@#%"); 
+	var cards = cardArr.join("@#%");
+	var urlsStringsAltsCardsArr = [urls, strings, alts, cards];
+	var urlsStringsAltsCards = urlsStringsAltsCardsArr.join("~~~");
+	return urlsStringsAltsCards; // Return this singular concatenated string. 
 }

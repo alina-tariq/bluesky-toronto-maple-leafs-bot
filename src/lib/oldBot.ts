@@ -5,9 +5,8 @@ import type {
   AppBskyFeedPost,
 } from "@atproto/api";
 import atproto from "@atproto/api";
-const { BskyAgent, RichText } = atproto;
-import { AppBskyEmbedVideo, AppBskyVideoDefs, AtpAgent } from "@atproto/api";
-import { promises as fs } from "fs";
+const { RichText } = atproto;
+import { AtpAgent } from "@atproto/api";
 import axios from "axios";
 
 type BotOptions = 
@@ -80,7 +79,7 @@ export default class Bot
     text: string | (Partial<AppBskyFeedPost.Record> & Omit<AppBskyFeedPost.Record, "createdAt">)
   ): Promise<void> {
 
-    var postNum = 2; // Specify the number of recent posts to compare from the logged in user's feed.
+    var postNum = 25; // Specify the number of recent posts to compare from the logged in user's feed.
     var bskyFeedAwait = await this.userAgent.app.bsky.feed.getAuthorFeed({actor: "notmapleleafs.bsky.social", limit: postNum,}); // Get a defined number + 2 of most recent posts from the logged in user's feed.
     var bskyFeed = bskyFeedAwait["data"]["feed"]; // Filter down the await values so we are only looking at the feeds.
     for (let i = 0; i < bskyFeed.length; i++) // Consider all collected posts.
@@ -89,8 +88,30 @@ export default class Bot
         var bskyRecord = bskyPost["post"]["record"]; // Filter post i down so we are only considering the record.
         var bskyEntries = Object.entries(bskyRecord); // Accessing the values from here is weird, so I put them all in an array and access the one corresponding to text (0,1).
         var bskyText = bskyEntries[bskyEntries.length - 1][1];
-        if (text === bskyText) // Check if the text we are trying to post has already been posted in the last postNum posts, or is empty. Might change empty conditional if I get images working.  
+        var postType = bskyRecord.hasOwnProperty("embed")
+                        ? (bskyRecord as any)["embed"]["$type"]
+                        : (bskyRecord as any)["$type"];
+        
+        // Checks if the video we're posting has already been posted
+        // A previous image post with no caption and a previous video with no
+        // caption should also cause this check to fail
+        if ((text as string).trim() === (bskyText as string).trim() && postType === 'app.bsky.embed.video') // postType confirms the matching post is also a video
         {
+          // TODO: not a fail safe check but the best that works for now
+          var postHeight = (bskyRecord as any)["embed"]["aspectRatio"]["height"];
+          var postWidth = (bskyRecord as any)["embed"]["aspectRatio"]["width"];
+          var videoHeight = alt.split('@#*')[1];
+          var videoWidth = alt.split('@#*')[0];
+          
+          if (postHeight != videoHeight && postWidth != videoWidth) {
+            console.log('video texts matched but height and width did not');
+            console.log('post text: ', text);
+            console.log('bsky text: ', bskyText);
+            console.log('post height and width: ', videoHeight, ' ', videoWidth);
+            console.log('bsky height and width: ', postHeight, ' ', postWidth);
+            continue;
+          }
+
           console.log("failed on case " + i + " in video post");
           return;
         }
@@ -146,13 +167,15 @@ export default class Bot
     const limitsResponse = await axios.get(limitsUrl, {headers: {'Authorization': `Bearer ${token}`}});
     const limits = limitsResponse.data;
 
+    // posts video if it's less than 60 seconds long
     if (urls[0].slice(-3) == "mp4" && parseFloat(alts[0].split("@#*")[2]) < 60 && limits.canUpload == true)
     {
       await this.postVideo(false, urls[0], alts[0], text);
       return 37;
     }
-    else
-    {
+    else // non-video posts
+    { 
+      // for videos longer than 60 seconds
       if (urls[0].slice(-3) == "mp4")
       {
         urls[0] = alts[0].split("@#*")[3];
@@ -165,6 +188,8 @@ export default class Bot
           alts[0] = "The video is too long to be posted on Bluesky. This is the thumbnail of the video instead.";
         }
       }
+
+      // TODO: currently will never be true b/c card is always None
       if (card != "None" && urls[0] == "None")
       {
         var cardResponse = await axios.get(cards[3], { responseType: 'arraybuffer'});
@@ -182,7 +207,7 @@ export default class Bot
 
       for (var i = 0; i < 4; i++)
       {
-        if (urls[i] != "None")
+        if (urls[i] != "None" && urls[i].slice(-3) != "mp4")
         {
           var response = await axios.get(urls[i], { responseType: 'arraybuffer'});
           var buffer = Buffer.from(response.data, "utf-8");
@@ -215,7 +240,7 @@ export default class Bot
         }
       }
 
-      var postNum = 2; // Specify the number of recent posts to compare from the logged in user's feed.
+      var postNum = 25; // Specify the number of recent posts to compare from the logged in user's feed.
       var bskyFeedAwait = await this.userAgent.app.bsky.feed.getAuthorFeed({actor: "notmapleleafs.bsky.social", limit: postNum,}); // Get a defined number + 2 of most recent posts from the logged in user's feed.
       var bskyFeed = bskyFeedAwait["data"]["feed"]; // Filter down the await values so we are only looking at the feeds.
       var bskyFeed0 = bskyFeed[0]; // Select post 0, the most recent post made by this user.
@@ -243,8 +268,30 @@ export default class Bot
         var bskyRecord = bskyPost["post"]["record"]; // Filter post i down so we are only considering the record.
         var bskyEntries = Object.entries(bskyRecord); // Accessing the values from here is weird, so I put them all in an array and access the one corresponding to text (0,1).
         var bskyText = bskyEntries[bskyEntries.length - 1][1];
-        if (text === bskyText) // Check if the text we are trying to post has already been posted in the last postNum posts, or is empty. Might change empty conditional if I get images working.  
-        {
+        var postType = bskyRecord.hasOwnProperty("embed")
+                        ? (bskyRecord as any)["embed"]["$type"]
+                        : (bskyRecord as any)["$type"];
+
+        // Checks if the image or text post has already been posted
+        // A previous image post with no caption should cause this to fail
+        if ((text as string).trim() === (bskyText as string).trim()) // Check if the text we are trying to post has already been posted in the last postNum posts, or is empty. Might change empty conditional if I get images working.  
+        { 
+          if (postType === 'app.bsky.embed.images') {
+            var postAlt = (bskyRecord as any)["embed"]["images"][0]["alt"];
+            var imgAlt = alts[0].replace('None', '');
+            
+            // TODO: this is not fail safe if there is a case of two videos with no captions
+            // that are both too long for bluesky (i.e same alt text)
+            if (postAlt != imgAlt) {
+              console.log('image post text matched but alts did not');
+              console.log('post text: ', text);
+              console.log('bsky text: ', bskyText);
+              console.log('post alt: ', imgAlt);
+              console.log('bsky alt: ', postAlt);
+              continue;
+            }
+          }
+
           console.log("failed on case " + i);
           return "37"; // Output an arbitrary value that can be treated as a fail code. Could be anything, I picked 37 because I like the number 37. 
         }
@@ -354,9 +401,9 @@ export default class Bot
         : this.defaultOptions;
       const bot = new Bot(service); // Instantiate a constant bot value as a new Bot under the supplied Bluesky service.
       await bot.login(bskyAccount); // Log the bot into the specified Bluesky account determined by the bskyAccount value.
-      const mastodonAwait = await getPostText(); // Get the desired number of recent Mastodon posts from the specified user in getPostText.
+      const embedTweets = await getPostText(); // Get the desired number of recent Mastodon posts from the specified user in getPostText.
 
-      var urlsStringsAltsCardsArr = mastodonAwait.split("~~~");
+      var urlsStringsAltsCardsArr = embedTweets.split("~~~");
       var mastUrlArr = urlsStringsAltsCardsArr[0].split("@#%");
       var mastodonArr = urlsStringsAltsCardsArr[1].split("@#%");
       var mastAltArr = urlsStringsAltsCardsArr[2].split("@#%");
@@ -369,7 +416,7 @@ export default class Bot
         {
           if (mastodonArr[i].length <= 300) // Simple case, where a post is 300 characters or less, within the length bounds of a Bluesky post.
           {
-            var postVal = await bot.post(false, mastUrlArr[i], mastAltArr[i], mastCardArr[i], mastodonArr[i]); // Run bot.post on this text value, posting to Bluesky if the text is new. Post this as a root value. // Run bot.post on this text value, posting to Bluesky if the text is new. Post this as a root value.
+            var postVal = await bot.post(false, mastUrlArr[i], mastAltArr[i], mastCardArr[i], mastodonArr[i]); // Run bot.post on this text value, posting to Bluesky if the text is new. Post this as a root value.
             if (Number(postVal) != 37)
             {
               postCount++;
@@ -418,7 +465,8 @@ export default class Bot
         }
         if (postCount == mastodonArr.length)
         {
-          await bot.post(false, "None!^&None!^&None!^&None", "None!^&None!^&None!^&None", "None", "ERROR: Repost Detection Glitch.");
+          // TODO: seems to trigger if there's only one post being uploaded so disabling for now
+          // await bot.post(false, "None!^&None!^&None!^&None", "None!^&None!^&None!^&None", "None", "ERROR: Repost Detection Glitch.");
         }
       }
       return; // Return void, we're done. 
