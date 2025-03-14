@@ -21,3 +21,4 @@ jobs:
         env:
           BSKY_HANDLE: ${{ secrets.BSKY_HANDLE }}
           BSKY_PASSWORD: ${{ secrets.BSKY_PASSWORD }}
+          SYNAPI_LIMIT: ${{ secrets.SYNAPI_LIMIT }}
