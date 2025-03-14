@@ -2,7 +2,7 @@ name: "Post to Bluesky"
 on:
   push:
     branches:
-      - main
+      - develop
   # schedule:
     # - cron: "*/30 * * * *"
 jobs:

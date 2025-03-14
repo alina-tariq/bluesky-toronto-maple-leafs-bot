@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { postLimit } from "./config.js";
 
 function timeDifference(time: any) {
     
@@ -39,7 +40,9 @@ export default async function getPostText()
 		var altTextArr = [];
 		var cardArr = [];
 
-		for (let i = 0; i < objJSON.length; i++) {
+        var postNum = postLimit === 20 ? objJSON.length : postLimit
+
+		for (let i = 0; i < postNum; i++) {
 			var postUrlArr = [];
 			var postAltTextArr = [];
 			
