@@ -2,9 +2,9 @@ name: "Post to Bluesky"
 on:
   push:
     branches:
-      - main
-  schedule:
-    - cron: "*/30 * * * *"
+      - develop-alt
+  # schedule:
+  #   - cron: "*/60 * * * *"
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -21,3 +21,4 @@ jobs:
         env:
           BSKY_HANDLE: ${{ secrets.BSKY_HANDLE }}
           BSKY_PASSWORD: ${{ secrets.BSKY_PASSWORD }}
+          MASTODON_LIMIT: ${{ secrets.MASTODON_LIMIT }}
