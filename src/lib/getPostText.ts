@@ -54,7 +54,7 @@ export default async function getPostText()
 					
 					// retrieve media url
 					if (type == "video") {
-						var videoUrl = tweetMedia[j]["video_info"]["variants"][3]["url"];
+						var videoUrl = tweetMedia[j]["video_info"]["variants"].at(-1)["url"];
 						const sliceIndex = videoUrl.indexOf('mp4');
 						videoUrl = videoUrl.slice(0, sliceIndex+3);
 						postUrlArr.push(videoUrl);
