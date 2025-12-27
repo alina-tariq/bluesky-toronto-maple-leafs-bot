@@ -135,9 +135,9 @@ export default async function getPostText()
 
 		return urlsStringsAltsCards; // Return this singular concatenated string. 
 	} catch (error: any) {
-		console.log(error.response.headers);
+		console.log(error.response);
 		// var resetTime = parseInt(error.response.headers['x-rate-limit-reset']);
 		// console.log(timeDifference(new Date(resetTime * 1000)));
-		throw error.response.headers;
+		throw error.response;
 	}
 }
